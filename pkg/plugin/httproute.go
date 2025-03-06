@@ -30,15 +30,61 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 			ErrorString: err.Error(),
 		}
 	}
+
+	// --- New logic: Filter out managed rules ---
+	// Get the managedRouteMap from the ConfigMap.
+	var managedRouteMap ManagedRouteMap
+	clientset := r.TestClientset
+	if !r.IsTest {
+		clientset = r.Clientset.CoreV1().ConfigMaps(gatewayAPIConfig.Namespace)
+	}
+	configMap, err := utils.GetOrCreateConfigMap(gatewayAPIConfig.ConfigMap, utils.CreateConfigMapOptions{
+		Clientset: clientset,
+		Ctx:       ctx,
+	})
+	if err != nil {
+		return pluginTypes.RpcError{
+			ErrorString: err.Error(),
+		}
+	}
+	err = utils.GetConfigMapData(configMap, HTTPConfigMapKey, &managedRouteMap)
+	if err != nil {
+		// If we fail to load, default to an empty map.
+		managedRouteMap = make(ManagedRouteMap)
+	}
+	// Build a set of rule indices that are managed for this HTTPRoute.
+	managedIndices := make(map[int]struct{})
+	for _, ruleMap := range managedRouteMap {
+		if index, ok := ruleMap[gatewayAPIConfig.HTTPRoute]; ok {
+			managedIndices[index] = struct{}{}
+		}
+	}
+	// Convert the existing rules to our HTTPRouteRuleList type.
+	routeRuleList := HTTPRouteRuleList(httpRoute.Spec.Rules)
+	// Filter out any rule whose index is in the managedIndices set.
+	filteredRules := make(HTTPRouteRuleList, 0, len(routeRuleList))
+	for idx, rule := range routeRuleList {
+		if _, managed := managedIndices[idx]; managed {
+			// Skip managed rule.
+			continue
+		}
+		filteredRules = append(filteredRules, rule)
+	}
+	// Update the HTTPRoute spec with the filtered list.
+	httpRoute.Spec.Rules = []gatewayv1.HTTPRouteRule(filteredRules)
+	routeRuleList = filteredRules
+	// --- End new logic ---
+
 	canaryServiceName := rollout.Spec.Strategy.Canary.CanaryService
 	stableServiceName := rollout.Spec.Strategy.Canary.StableService
-	routeRuleList := HTTPRouteRuleList(httpRoute.Spec.Rules)
+	// Now only rules that are not managed will be used when fetching backend refs.
 	canaryBackendRefs, err := getBackendRefs(canaryServiceName, routeRuleList)
 	if err != nil {
 		return pluginTypes.RpcError{
 			ErrorString: err.Error(),
 		}
 	}
+	// Set the desired weight only for unmanaged canary backend refs.
 	for _, ref := range canaryBackendRefs {
 		ref.Weight = &desiredWeight
 	}
