@@ -289,7 +289,7 @@ func (r *RpcPlugin) removeHTTPManagedRoutes(managedRouteNameList []v1alpha1.Mang
 		managedRouteName := managedRoute.Name
 		_, isOk := managedRouteMap[managedRouteName]
 		if !isOk {
-			r.LogCtx.Info("managedRouteName is not in httpHeaderManagedRouteMap", "managedRouteName", managedRouteName)
+			r.LogCtx.WithField("managedRouteName", managedRouteName).Info("managedRouteName is not in httpHeaderManagedRouteMap")
 			continue
 		}
 		isHTTPRouteRuleListChanged = true
