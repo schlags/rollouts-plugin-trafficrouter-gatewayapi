@@ -28,8 +28,7 @@ func GetKubeConfig() (*rest.Config, error) {
 func SetupLog() *log.Entry {
 	log.SetLevel(log.InfoLevel)
 	log.SetFormatter(
-		&log.TextFormatter{
-			FullTimestamp: true,
+		&log.JSONFormatter{
 		},
 	)
 	return log.WithFields(log.Fields{"plugin": "trafficrouter"})
