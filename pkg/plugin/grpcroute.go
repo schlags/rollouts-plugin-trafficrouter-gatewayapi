@@ -297,7 +297,7 @@ func (r *RpcPlugin) removeGRPCManagedRoutes(managedRouteNameList []v1alpha1.Mang
 		managedRouteName := managedRoute.Name
 		_, isOk := managedRouteMap[managedRouteName]
 		if !isOk {
-			r.LogCtx.Logger.Infof("%s is not in grpcHeaderManagedRouteMap", managedRouteName)
+			r.LogCtx.Info("%s is not in grpcHeaderManagedRouteMap", managedRouteName)
 			continue
 		}
 		isGRPCRouteRuleListChanged = true
