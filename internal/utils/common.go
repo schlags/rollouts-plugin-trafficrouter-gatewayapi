@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 
 	pluginTypes "github.com/argoproj/argo-rollouts/utils/plugin/types"
-	"github.com/hashicorp/go-hclog"
+	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,13 +25,13 @@ func GetKubeConfig() (*rest.Config, error) {
 	return config, nil
 }
 
-func SetupLog() hclog.Logger {
-  logger := hclog.New(&hclog.LoggerOptions{
-    Name:  "trafficrouter",
-    Level: hclog.Info,
-    JSONFormat: true,
-  })
-  return logger
+func SetupLog() *log.Entry {
+	log.SetLevel(log.InfoLevel)
+	log.SetFormatter(
+		&log.JSONFormatter{
+		},
+	)
+	return log.WithFields(log.Fields{"plugin": "trafficrouter"})
 }
 
 func GetOrCreateConfigMap(name string, options CreateConfigMapOptions) (*v1.ConfigMap, error) {
@@ -76,7 +76,7 @@ func UpdateConfigMapData(configMap *v1.ConfigMap, configMapData any, options Upd
 	return err
 }
 
-func DoTransaction(logCtx hclog.Logger, taskList ...Task) error {
+func DoTransaction(logCtx *log.Entry, taskList ...Task) error {
 	var err, reverseErr error
 	for index, task := range taskList {
 		err = task.Action()

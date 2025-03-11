@@ -3,7 +3,7 @@ package plugin
 import (
 	"sync"
 
-	"github.com/hashicorp/go-hclog"
+	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -29,7 +29,7 @@ type RpcPlugin struct {
 	UpdatedHTTPRouteMock *gatewayv1.HTTPRoute
 	UpdatedTCPRouteMock  *v1alpha2.TCPRoute
 	UpdatedGRPCRouteMock *gatewayv1.GRPCRoute
-	LogCtx               hclog.Logger
+	LogCtx               *logrus.Entry
 	IsTest               bool
 }
 
