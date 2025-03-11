@@ -9,6 +9,7 @@ import (
 	"github.com/argoproj-labs/rollouts-plugin-trafficrouter-gatewayapi/internal/utils"
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	pluginTypes "github.com/argoproj/argo-rollouts/utils/plugin/types"
+	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -61,6 +62,11 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 			ErrorString: err.Error(),
 		}
 	}
+	r.LogCtx.WithFields(logrus.Fields{
+		"desiredWeight": desiredWeight,
+		"canaryServiceName": canaryServiceName,
+		"httpRoute": httpRoute,
+	}).Info("Set HTTPRoute weight")
 	return pluginTypes.RpcError{}
 }
 
@@ -219,6 +225,12 @@ func (r *RpcPlugin) setHTTPHeaderRoute(rollout *v1alpha1.Rollout, headerRouting 
 			ErrorString: err.Error(),
 		}
 	}
+
+	r.LogCtx.WithFields(logrus.Fields{
+		"headerRouting": headerRouting,
+		"canaryServiceName": canaryServiceName,
+		"httpRoute": httpRoute,
+	}).Info("Set HTTPRoute header route")
 	return pluginTypes.RpcError{}
 }
 
@@ -367,6 +379,10 @@ func (r *RpcPlugin) removeHTTPManagedRoutes(managedRouteNameList []v1alpha1.Mang
 			ErrorString: err.Error(),
 		}
 	}
+	r.LogCtx.WithFields(logrus.Fields{
+		"managedRouteNameList": managedRouteNameList,
+		"httpRoute": httpRoute,
+	}).Info("Removed HTTPRoute managed routes")
 	return pluginTypes.RpcError{}
 }
 
