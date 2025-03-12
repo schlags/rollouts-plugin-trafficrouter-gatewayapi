@@ -185,7 +185,7 @@ func testSingleHeaderBasedHTTPRoute(ctx context.Context, t *testing.T, config *e
 			resourcesMap[HTTP_ROUTE_KEY],
 			getMatchHeaderBasedHTTPRouteFetcher(
 				t,
-				1,
+				MANAGED_HTTP_ROUTE_RULE_WEIGHT,
 				LAST_HEADER_BASED_HTTP_ROUTE_VALUE,
 			),
 		),
@@ -203,7 +203,7 @@ func testSingleHeaderBasedHTTPRoute(ctx context.Context, t *testing.T, config *e
 			resourcesMap[HTTP_ROUTE_KEY],
 			getMatchHeaderBasedHTTPRouteFetcher(
 				t,
-				FIRST_CANARY_ROUTE_WEIGHT,
+				MANAGED_HTTP_ROUTE_RULE_WEIGHT,
 				FIRST_HEADER_BASED_HTTP_ROUTE_VALUE,
 			),
 		),
