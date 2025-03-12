@@ -31,8 +31,10 @@ const (
 	CANARY_BACKEND_REF_INDEX       = 1
 	HEADER_BASED_BACKEND_REF_INDEX = 0
 
-	FIRST_CANARY_ROUTE_WEIGHT = 0
-	LAST_CANARY_ROUTE_WEIGHT  = 30
+	FIRST_CANARY_ROUTE_WEIGHT      = 0
+	LAST_CANARY_ROUTE_WEIGHT       = 30
+	// HTTPRoute rules that are managed by the rollout should never update their weight to the setWeight value. It should stay as the default 1
+	MANAGED_HTTP_ROUTE_RULE_WEIGHT = 1 
 
 	RESOURCES_MAP_KEY contextKey = "resourcesMap"
 
