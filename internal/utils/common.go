@@ -28,8 +28,7 @@ func GetKubeConfig() (*rest.Config, error) {
 func SetupLog() *log.Entry {
 	log.SetLevel(log.InfoLevel)
 	log.SetFormatter(
-		&log.JSONFormatter{
-		},
+		&log.JSONFormatter{},
 	)
 	return log.WithFields(log.Fields{"plugin": "trafficrouter"})
 }
