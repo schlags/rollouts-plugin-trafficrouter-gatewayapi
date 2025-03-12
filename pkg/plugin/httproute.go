@@ -68,12 +68,13 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 			ErrorString: err.Error(),
 		}
 	}
+	canaryBackendRefs := make([]*HTTPBackendRef, 0)
 	for _, indexedCanaryBackendRef := range indexedCanaryBackendRefs {
+		// TODO - when setMirrorRoute is implemented, we would need to update the weight of the managed
+		// canary backendRefs for mirror routes.
+		// Ideally - these would be stored differently in the configmap from the managed header based routes
+		// but that would mean a breaking change to the configmap structure
 		if managedRuleIndices[indexedCanaryBackendRef.RuleIndex] {
-			// TODO - when setMirrorRoute is implemented, we would need to update the weight of the managed
-			// canary backendRefs for mirror routes.
-			// Ideally - these would be stored differently in the configmap from the managed header based routes
-			// but that would mean a breaking change to the configmap structure
 			r.LogCtx.WithFields(logrus.Fields{
 				"rule":            httpRoute.Spec.Rules[indexedCanaryBackendRef.RuleIndex],
 				"index":           indexedCanaryBackendRef.RuleIndex,
@@ -81,10 +82,14 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 			}).Info("Skipping matched canary backendRef for weight adjustment since it is a part of a rule marked as a managed route")
 			continue
 		}
-		for _, ref := range indexedCanaryBackendRef.Refs {
-			ref.Weight = &desiredWeight
-		}
+		canaryBackendRefs = append(canaryBackendRefs, indexedCanaryBackendRef.Refs...)
 	}
+
+	// Update the weight of the canary backendRefs not owned by a rule marked as a managed route
+	for _, ref := range canaryBackendRefs {
+		ref.Weight = &desiredWeight
+	}
+
 	// Noted above, but any managed routes that would have a stableBackendRef would be updated with weight here.
 	// Since this is not yet possible (all managed routes will only have a single canary backendRef),
 	// we can avoid checking for managed route rule indexes here.
