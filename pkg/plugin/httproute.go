@@ -66,8 +66,8 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 	for i, rule := range httpRoute.Spec.Rules {
 		if managedRuleIndices[i] {
 			r.LogCtx.WithFields(logrus.Fields{
-				"rule": rule,
-				"index": i,
+				"rule":            rule,
+				"index":           i,
 				"managedRouteMap": managedRouteMap,
 			}).Info("Skipping rule for setHTTPRouteWeight since it is a managed route")
 			continue
@@ -91,9 +91,9 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 		}
 	}
 	r.LogCtx.WithFields(logrus.Fields{
-		"desiredWeight": desiredWeight,
+		"desiredWeight":     desiredWeight,
 		"canaryServiceName": canaryServiceName,
-		"httpRoute": httpRoute,
+		"httpRoute":         httpRoute,
 	}).Info("Set HTTPRoute weight")
 	return pluginTypes.RpcError{}
 }
@@ -255,9 +255,9 @@ func (r *RpcPlugin) setHTTPHeaderRoute(rollout *v1alpha1.Rollout, headerRouting 
 	}
 
 	r.LogCtx.WithFields(logrus.Fields{
-		"headerRouting": headerRouting,
+		"headerRouting":     headerRouting,
 		"canaryServiceName": canaryServiceName,
-		"httpRoute": httpRoute,
+		"httpRoute":         httpRoute,
 	}).Info("Set HTTPRoute header route")
 	return pluginTypes.RpcError{}
 }
@@ -409,7 +409,7 @@ func (r *RpcPlugin) removeHTTPManagedRoutes(managedRouteNameList []v1alpha1.Mang
 	}
 	r.LogCtx.WithFields(logrus.Fields{
 		"managedRouteNameList": managedRouteNameList,
-		"httpRoute": httpRoute,
+		"httpRoute":            httpRoute,
 	}).Info("Removed HTTPRoute managed routes")
 	return pluginTypes.RpcError{}
 }
