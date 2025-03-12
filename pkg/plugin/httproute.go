@@ -20,10 +20,13 @@ const (
 
 func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight int32, gatewayAPIConfig *GatewayAPITrafficRouting) pluginTypes.RpcError {
 	ctx := context.TODO()
+	clientset := r.TestClientset
 	httpRouteClient := r.HTTPRouteClient
+
 	if !r.IsTest {
 		gatewayClientV1 := r.GatewayAPIClientset.GatewayV1()
 		httpRouteClient = gatewayClientV1.HTTPRoutes(gatewayAPIConfig.Namespace)
+		clientset = r.Clientset.CoreV1().ConfigMaps(gatewayAPIConfig.Namespace)
 	}
 	httpRoute, err := httpRouteClient.Get(ctx, gatewayAPIConfig.HTTPRoute, metav1.GetOptions{})
 	if err != nil {
@@ -38,7 +41,7 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 	// Retrieve the managed routes from the configmap to determine which rules were added via setHTTPHeaderRoute
 	managedRouteMap := make(ManagedRouteMap)
 	configMap, err := utils.GetOrCreateConfigMap(gatewayAPIConfig.ConfigMap, utils.CreateConfigMapOptions{
-		Clientset: r.Clientset.CoreV1().ConfigMaps(gatewayAPIConfig.Namespace),
+		Clientset: clientset,
 		Ctx:       ctx,
 	})
 	if err != nil {
