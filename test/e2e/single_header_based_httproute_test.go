@@ -185,7 +185,7 @@ func testSingleHeaderBasedHTTPRoute(ctx context.Context, t *testing.T, config *e
 			resourcesMap[HTTP_ROUTE_KEY],
 			getMatchHeaderBasedHTTPRouteFetcher(
 				t,
-				MANAGED_HTTP_ROUTE_RULE_WEIGHT,
+				LAST_CANARY_ROUTE_WEIGHT,
 				LAST_HEADER_BASED_HTTP_ROUTE_VALUE,
 			),
 		),
@@ -203,7 +203,7 @@ func testSingleHeaderBasedHTTPRoute(ctx context.Context, t *testing.T, config *e
 			resourcesMap[HTTP_ROUTE_KEY],
 			getMatchHeaderBasedHTTPRouteFetcher(
 				t,
-				MANAGED_HTTP_ROUTE_RULE_WEIGHT,
+				FIRST_CANARY_ROUTE_WEIGHT,
 				FIRST_HEADER_BASED_HTTP_ROUTE_VALUE,
 			),
 		),
@@ -272,7 +272,7 @@ func getMatchHeaderBasedHTTPRouteFetcher(t *testing.T, targetWeight int32, targe
 		}
 		headerBasedRouteValue := rules[HEADER_BASED_RULE_INDEX].Matches[HEADER_BASED_MATCH_INDEX].Headers[HEADER_BASED_HEADER_INDEX]
 		weight := *rules[HEADER_BASED_RULE_INDEX].BackendRefs[HEADER_BASED_BACKEND_REF_INDEX].Weight
-		return weight == targetWeight && isHeaderBasedHTTPRouteValuesEqual(headerBasedRouteValue, targetHeaderBasedRouteValue)
+		return weight == MANAGED_HTTP_ROUTE_RULE_WEIGHT && isHeaderBasedHTTPRouteValuesEqual(headerBasedRouteValue, targetHeaderBasedRouteValue)
 	}
 }
 
