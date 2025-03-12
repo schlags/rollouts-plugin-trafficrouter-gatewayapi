@@ -21,3 +21,5 @@ type Task struct {
 	Action        func() error
 	ReverseAction func() error
 }
+
+type ManagedRuleIndices map[int]bool
