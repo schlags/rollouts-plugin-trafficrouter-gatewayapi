@@ -33,26 +33,51 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 	}
 	canaryServiceName := rollout.Spec.Strategy.Canary.CanaryService
 	stableServiceName := rollout.Spec.Strategy.Canary.StableService
-	routeRuleList := HTTPRouteRuleList(httpRoute.Spec.Rules)
-	canaryBackendRefs, err := getBackendRefs(canaryServiceName, routeRuleList)
-	if err != nil {
-		return pluginTypes.RpcError{
-			ErrorString: err.Error(),
-		}
-	}
-	for _, ref := range canaryBackendRefs {
-		ref.Weight = &desiredWeight
-	}
-	stableBackendRefs, err := getBackendRefs(stableServiceName, routeRuleList)
-	if err != nil {
-		return pluginTypes.RpcError{
-			ErrorString: err.Error(),
-		}
-	}
 	restWeight := 100 - desiredWeight
-	for _, ref := range stableBackendRefs {
-		ref.Weight = &restWeight
+
+	// Retrieve the managed routes from the configmap to determine which rules were added via setHTTPHeaderRoute
+	managedRouteMap := make(ManagedRouteMap)
+	configMap, err := utils.GetOrCreateConfigMap(gatewayAPIConfig.ConfigMap, utils.CreateConfigMapOptions{
+		Clientset: r.Clientset.CoreV1().ConfigMaps(gatewayAPIConfig.Namespace),
+		Ctx:       ctx,
+	})
+	if err != nil {
+		return pluginTypes.RpcError{
+			ErrorString: err.Error(),
+		}
 	}
+	err = utils.GetConfigMapData(configMap, HTTPConfigMapKey, &managedRouteMap)
+	if err != nil {
+		return pluginTypes.RpcError{
+			ErrorString: err.Error(),
+		}
+	}
+	managedRuleIndices := make(map[int]bool)
+	for _, managedRoute := range managedRouteMap {
+		if idx, ok := managedRoute[httpRoute.Name]; ok {
+			managedRuleIndices[idx] = true
+		}
+	}
+
+	// Iterate through each rule and update only those that were not added via setHTTPHeaderRoute
+	for i, rule := range httpRoute.Spec.Rules {
+		if managedRuleIndices[i] {
+			r.LogCtx.WithFields(logrus.Fields{
+				"rule": rule,
+				"index": i,
+				"managedRouteMap": managedRouteMap,
+			}).Info("Skipping rule for setHTTPRouteWeight since it is a managed route")
+			continue
+		}
+		for j, backendRef := range rule.BackendRefs {
+			if string(backendRef.Name) == canaryServiceName {
+				httpRoute.Spec.Rules[i].BackendRefs[j].Weight = &desiredWeight
+			} else if string(backendRef.Name) == stableServiceName {
+				httpRoute.Spec.Rules[i].BackendRefs[j].Weight = &restWeight
+			}
+		}
+	}
+
 	updatedHTTPRoute, err := httpRouteClient.Update(ctx, httpRoute, metav1.UpdateOptions{})
 	if r.IsTest {
 		r.UpdatedHTTPRouteMock = updatedHTTPRoute
