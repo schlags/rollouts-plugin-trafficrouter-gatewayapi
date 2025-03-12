@@ -307,6 +307,7 @@ func getBackendRefs[T1 GatewayAPIBackendRef, T2 GatewayAPIRouteRule[T1], T3 Gate
 	}
 	return nil, routeRuleList.Error()
 }
+
 // This will return the backendRefs slices that matched the backendRefName but split by the routeRule index to be used for updating the weight
 // under consideration of the managedRoute rules present from the configmap (identifiable by the index of the rule on an HttpRoute)
 func getIndexedBackendRefs[T1 GatewayAPIBackendRef, T2 GatewayAPIRouteRule[T1], T3 GatewayAPIRouteRuleList[T1, T2]](backendRefName string, routeRuleList T3) ([]IndexedBackendRefs[T1], error) {
@@ -327,7 +328,7 @@ func getIndexedBackendRefs[T1 GatewayAPIBackendRef, T2 GatewayAPIRouteRule[T1], 
 		if len(matchedRefs) > 0 {
 			results = append(results, IndexedBackendRefs[T1]{
 				RuleIndex: ruleIndex,
-				Refs: 		matchedRefs,
+				Refs:      matchedRefs,
 			})
 		}
 		ruleIndex++
