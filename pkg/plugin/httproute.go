@@ -36,7 +36,6 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 	}
 	canaryServiceName := rollout.Spec.Strategy.Canary.CanaryService
 	stableServiceName := rollout.Spec.Strategy.Canary.StableService
-	restWeight := 100 - desiredWeight
 
 	// Retrieve the managed routes from the configmap to determine which rules were added via setHTTPHeaderRoute
 	managedRouteMap := make(ManagedRouteMap)
@@ -62,23 +61,42 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 		}
 	}
 
-	// Iterate through each rule and update only those that were not added via setHTTPHeaderRoute
-	for i, rule := range httpRoute.Spec.Rules {
-		if managedRuleIndices[i] {
+	routeRuleList := HTTPRouteRuleList(httpRoute.Spec.Rules)
+	indexedCanaryBackendRefs, err := getIndexedBackendRefs(canaryServiceName, routeRuleList)
+	if err != nil {
+		return pluginTypes.RpcError{
+			ErrorString: err.Error(),
+		}
+	}
+	for _, indexedCanaryBackendRef := range indexedCanaryBackendRefs {
+		if managedRuleIndices[indexedCanaryBackendRef.RuleIndex] {
+			// TODO - when setMirrorRoute is implemented, we would need to update the weight of the managed
+			// canary backendRefs for mirror routes.
+			// Ideally - these would be stored differently in the configmap from the managed header based routes
+			// but that would mean a breaking change to the configmap structure
 			r.LogCtx.WithFields(logrus.Fields{
-				"rule":            rule,
-				"index":           i,
+				"rule":            httpRoute.Spec.Rules[indexedCanaryBackendRef.RuleIndex],
+				"index":           indexedCanaryBackendRef.RuleIndex,
 				"managedRouteMap": managedRouteMap,
-			}).Info("Skipping rule for setHTTPRouteWeight since it is a managed route")
+			}).Info("Skipping matched canary backendRef for weight adjustment since it is a part of a rule marked as a managed route")
 			continue
 		}
-		for j, backendRef := range rule.BackendRefs {
-			if string(backendRef.Name) == canaryServiceName {
-				httpRoute.Spec.Rules[i].BackendRefs[j].Weight = &desiredWeight
-			} else if string(backendRef.Name) == stableServiceName {
-				httpRoute.Spec.Rules[i].BackendRefs[j].Weight = &restWeight
-			}
+		for _, ref := range indexedCanaryBackendRef.Refs {
+			ref.Weight = &desiredWeight
 		}
+	}
+	// Noted above, but any managed routes that would have a stableBackendRef would be updated with weight here.
+	// Since this is not yet possible (all managed routes will only have a single canary backendRef),
+	// we can avoid checking for managed route rule indexes here.
+	stableBackendRefs, err := getBackendRefs(stableServiceName, routeRuleList)
+	if err != nil {
+		return pluginTypes.RpcError{
+			ErrorString: err.Error(),
+		}
+	}
+	restWeight := 100 - desiredWeight
+	for _, ref := range stableBackendRefs {
+		ref.Weight = &restWeight
 	}
 
 	updatedHTTPRoute, err := httpRouteClient.Update(ctx, httpRoute, metav1.UpdateOptions{})
