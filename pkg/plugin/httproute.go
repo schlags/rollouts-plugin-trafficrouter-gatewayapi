@@ -61,6 +61,7 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 		}
 	}
 
+	changesMade := false
 	routeRuleList := HTTPRouteRuleList(httpRoute.Spec.Rules)
 	indexedCanaryBackendRefs, err := getIndexedBackendRefs(canaryServiceName, routeRuleList)
 	if err != nil {
@@ -79,6 +80,7 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 				"rule":            httpRoute.Spec.Rules[indexedCanaryBackendRef.RuleIndex],
 				"index":           indexedCanaryBackendRef.RuleIndex,
 				"managedRouteMap": managedRouteMap,
+				"stepType":        SetWeightStep,
 			}).Info("Skipping matched canary backendRef for weight adjustment since it is a part of a rule marked as a managed route")
 			continue
 		}
@@ -87,7 +89,10 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 
 	// Update the weight of the canary backendRefs not owned by a rule marked as a managed route
 	for _, ref := range canaryBackendRefs {
-		ref.Weight = &desiredWeight
+		if ref.Weight == nil || *ref.Weight != desiredWeight {
+			ref.Weight = &desiredWeight
+			changesMade = true
+		}
 	}
 
 	// Noted above, but any managed routes that would have a stableBackendRef would be updated with weight here.
@@ -101,7 +106,26 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 	}
 	restWeight := 100 - desiredWeight
 	for _, ref := range stableBackendRefs {
-		ref.Weight = &restWeight
+		if ref.Weight == nil || *ref.Weight != restWeight {
+			ref.Weight = &restWeight
+			changesMade = true
+		}
+	}
+
+	if !changesMade {
+		r.LogCtx.WithFields(logrus.Fields{
+			"desiredWeight":     desiredWeight,
+			"canaryServiceName": canaryServiceName,
+			"httpRoute":         httpRoute,
+			"stepType":        SetWeightStep,
+		}).Info("HTTPRoute weight is already set to desired weight, nothing to do.")
+		// No changes were made, return early
+		if r.IsTest {
+			return pluginTypes.RpcError{
+				ErrorString: "No changes were made to the HTTPRoute",
+			}
+		}
+		return pluginTypes.RpcError{}
 	}
 
 	updatedHTTPRoute, err := httpRouteClient.Update(ctx, httpRoute, metav1.UpdateOptions{})
@@ -117,6 +141,7 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 		"desiredWeight":     desiredWeight,
 		"canaryServiceName": canaryServiceName,
 		"httpRoute":         httpRoute,
+		"stepType":        SetWeightStep,
 	}).Info("Set HTTPRoute weight")
 	return pluginTypes.RpcError{}
 }
@@ -281,6 +306,7 @@ func (r *RpcPlugin) setHTTPHeaderRoute(rollout *v1alpha1.Rollout, headerRouting 
 		"headerRouting":     headerRouting,
 		"canaryServiceName": canaryServiceName,
 		"httpRoute":         httpRoute,
+		"stepType":        SetHeaderRouteStep,
 	}).Info("Set HTTPRoute header route")
 	return pluginTypes.RpcError{}
 }
