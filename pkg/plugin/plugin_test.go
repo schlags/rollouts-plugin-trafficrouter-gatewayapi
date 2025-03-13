@@ -140,7 +140,7 @@ func TestRunSuccessfully(t *testing.T) {
 		assert.Equal(t, desiredWeight, *(rpcPluginImp.UpdatedTCPRouteMock.Spec.Rules[0].BackendRefs[1].Weight))
 	})
 	t.Run("SetWeightViaRoutes", func(t *testing.T) {
-		var desiredWeight int32 = 30
+		var desiredWeight int32 = 40
 		rollout := newRollout(mocks.StableServiceName, mocks.CanaryServiceName,
 			&GatewayAPITrafficRouting{
 				Namespace: mocks.RolloutNamespace,
@@ -161,6 +161,38 @@ func TestRunSuccessfully(t *testing.T) {
 		err := pluginInstance.SetWeight(rollout, desiredWeight, []v1alpha1.WeightDestination{})
 
 		assert.Empty(t, err.Error())
+		assert.Equal(t, 100-desiredWeight, *(rpcPluginImp.UpdatedHTTPRouteMock.Spec.Rules[0].BackendRefs[0].Weight))
+		assert.Equal(t, desiredWeight, *(rpcPluginImp.UpdatedHTTPRouteMock.Spec.Rules[0].BackendRefs[1].Weight))
+		assert.Equal(t, 100-desiredWeight, *(rpcPluginImp.UpdatedTCPRouteMock.Spec.Rules[0].BackendRefs[0].Weight))
+		assert.Equal(t, desiredWeight, *(rpcPluginImp.UpdatedTCPRouteMock.Spec.Rules[0].BackendRefs[1].Weight))
+	})
+
+	t.Run("SkipSetWeightViaRoutesIfWeightIsIdenticalToDesired", func(t *testing.T) {
+		var desiredWeight int32 = 40 // Already set to 40 above
+		rollout := newRollout(mocks.StableServiceName, mocks.CanaryServiceName,
+			&GatewayAPITrafficRouting{
+				Namespace: mocks.RolloutNamespace,
+				HTTPRoutes: []HTTPRoute{
+					{
+						Name:            mocks.HTTPRouteName,
+						UseHeaderRoutes: true,
+					},
+				},
+				TCPRoutes: []TCPRoute{
+					{
+						Name:            mocks.TCPRouteName,
+						UseHeaderRoutes: true,
+					},
+				},
+				ConfigMap: mocks.ConfigMapName,
+			})
+		err := pluginInstance.SetWeight(rollout, desiredWeight, []v1alpha1.WeightDestination{})
+
+		// We throw an error in a test context to allow us to assert the behavior here
+		// In a real-world scenario, we would just log and return an empty error string
+		assert.Equal(t, err.Error(), "No changes were made to the HTTPRoute")
+
+		// Confirm weight is still 40
 		assert.Equal(t, 100-desiredWeight, *(rpcPluginImp.UpdatedHTTPRouteMock.Spec.Rules[0].BackendRefs[0].Weight))
 		assert.Equal(t, desiredWeight, *(rpcPluginImp.UpdatedHTTPRouteMock.Spec.Rules[0].BackendRefs[1].Weight))
 		assert.Equal(t, 100-desiredWeight, *(rpcPluginImp.UpdatedTCPRouteMock.Spec.Rules[0].BackendRefs[0].Weight))

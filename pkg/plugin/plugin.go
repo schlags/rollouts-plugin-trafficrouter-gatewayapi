@@ -19,6 +19,10 @@ const (
 	PluginName = "argoproj-labs/gatewayAPI"
 )
 
+const SetWeightStep = "setWeight"
+const SetHeaderRouteStep = "setHeaderRoute"
+const SetMirrorRouteStep = "setMirrorRoute"
+
 func (r *RpcPlugin) InitPlugin() pluginTypes.RpcError {
 	logger := utils.SetupLog()
 
