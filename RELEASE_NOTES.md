@@ -1,1 +1,1 @@
-Added ability to define rate limits for the kubeclient configuration used by the Plugin process.
+Skips updating the HTTPRoute if the weight is already equivalent to desired for all backend refs it should be changing.

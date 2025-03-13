@@ -1,0 +1,51 @@
+name: Create release tag on RELEASE_NOTES.md change
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - RELEASE_NOTES.md
+
+jobs:
+  create-release-tag:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Fetch full history to access all tags
+
+      - name: Set up Git configuration
+        run: |
+          git config --global user.name "Your Name"
+          git config --global user.email "your-email@example.com"
+
+      - name: Fetch all tags
+        run: git fetch --tags
+
+      - name: Determine latest release tag and increment patch version
+        id: tag
+        run: |
+          # Look for tags that match the published format (vX.Y.Z)
+          latest_tag=$(git tag --list "v[0-9]*.[0-9]*.[0-9]*" | sort -V | tail -n 1)
+          echo "Latest tag is: $latest_tag"
+          if [ -z "$latest_tag" ]; then
+            # No tags found; start at 0.0.1
+            new_version="0.0.1"
+          else
+            # Remove the "v" prefix and split into parts
+            version=${latest_tag#v}
+            IFS='.' read -r major minor patch <<< "$version"
+            patch=$((patch + 1))
+            new_version="${major}.${minor}.${patch}"
+          fi
+          new_tag="release-v${new_version}"
+          echo "New tag will be: $new_tag"
+          echo "::set-output name=new_tag::$new_tag"
+
+      - name: Create and push new release tag
+        run: |
+          git tag ${{ steps.tag.outputs.new_tag }}
+          git push origin ${{ steps.tag.outputs.new_tag }}
