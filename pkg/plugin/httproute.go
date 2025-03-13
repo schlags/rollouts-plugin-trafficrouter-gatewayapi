@@ -117,7 +117,7 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 			"desiredWeight":     desiredWeight,
 			"canaryServiceName": canaryServiceName,
 			"httpRoute":         httpRoute,
-			"stepType":        SetWeightStep,
+			"stepType":          SetWeightStep,
 		}).Info("HTTPRoute weight is already set to desired weight, nothing to do.")
 		// No changes were made, return early
 		if r.IsTest {
@@ -141,7 +141,7 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 		"desiredWeight":     desiredWeight,
 		"canaryServiceName": canaryServiceName,
 		"httpRoute":         httpRoute,
-		"stepType":        SetWeightStep,
+		"stepType":          SetWeightStep,
 	}).Info("Set HTTPRoute weight")
 	return pluginTypes.RpcError{}
 }
@@ -306,7 +306,7 @@ func (r *RpcPlugin) setHTTPHeaderRoute(rollout *v1alpha1.Rollout, headerRouting 
 		"headerRouting":     headerRouting,
 		"canaryServiceName": canaryServiceName,
 		"httpRoute":         httpRoute,
-		"stepType":        SetHeaderRouteStep,
+		"stepType":          SetHeaderRouteStep,
 	}).Info("Set HTTPRoute header route")
 	return pluginTypes.RpcError{}
 }
