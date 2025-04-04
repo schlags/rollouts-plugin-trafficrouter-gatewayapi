@@ -119,6 +119,7 @@ func TestRunSuccessfully(t *testing.T) {
 		rollout := newRollout(mocks.StableServiceName, mocks.CanaryServiceName, &GatewayAPITrafficRouting{
 			Namespace: mocks.RolloutNamespace,
 			GRPCRoute: mocks.GRPCRouteName,
+			ConfigMap: mocks.ConfigMapName,
 		})
 		err := pluginInstance.SetWeight(rollout, desiredWeight, []v1alpha1.WeightDestination{})
 

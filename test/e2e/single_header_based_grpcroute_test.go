@@ -272,7 +272,7 @@ func getMatchHeaderBasedGRPCRouteFetcher(t *testing.T, targetWeight int32, targe
 		}
 		headerBasedRouteValue := rules[HEADER_BASED_RULE_INDEX].Matches[HEADER_BASED_MATCH_INDEX].Headers[HEADER_BASED_HEADER_INDEX]
 		weight := *rules[HEADER_BASED_RULE_INDEX].BackendRefs[HEADER_BASED_BACKEND_REF_INDEX].Weight
-		return weight == targetWeight && isHeaderBasedGRPCRouteValuesEqual(headerBasedRouteValue, targetHeaderBasedRouteValue)
+		return weight == DEFAULT_ROUTE_WEIGHT && isHeaderBasedGRPCRouteValuesEqual(headerBasedRouteValue, targetHeaderBasedRouteValue)
 	}
 }
 
