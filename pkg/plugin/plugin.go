@@ -21,6 +21,7 @@ const (
 
 const SetWeightStep = "setWeight"
 const SetHeaderRouteStep = "setHeaderRoute"
+const RemoveSetHeaderRouteStep = "removeSetHeaderRoute"
 const SetMirrorRouteStep = "setMirrorRoute"
 
 func (r *RpcPlugin) InitPlugin() pluginTypes.RpcError {

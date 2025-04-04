@@ -463,6 +463,7 @@ func (r *RpcPlugin) removeHTTPManagedRoutes(managedRouteNameList []v1alpha1.Mang
 	r.LogCtx.WithFields(logrus.Fields{
 		"managedRouteNameList": managedRouteNameList,
 		"httpRoute":            httpRoute,
+		"stepType":             RemoveSetHeaderRouteStep,
 	}).Info("Removed HTTPRoute managed routes")
 	return pluginTypes.RpcError{}
 }
