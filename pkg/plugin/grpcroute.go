@@ -9,6 +9,7 @@ import (
 	"github.com/argoproj-labs/rollouts-plugin-trafficrouter-gatewayapi/internal/utils"
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	pluginTypes "github.com/argoproj/argo-rollouts/utils/plugin/types"
+	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -19,10 +20,12 @@ const (
 
 func (r *RpcPlugin) setGRPCRouteWeight(rollout *v1alpha1.Rollout, desiredWeight int32, gatewayAPIConfig *GatewayAPITrafficRouting) pluginTypes.RpcError {
 	ctx := context.TODO()
+	clientset := r.TestClientset
 	grpcRouteClient := r.GRPCRouteClient
 	if !r.IsTest {
 		gatewayClientv1 := r.GatewayAPIClientset.GatewayV1()
 		grpcRouteClient = gatewayClientv1.GRPCRoutes(gatewayAPIConfig.Namespace)
+		clientset = r.Clientset.CoreV1().ConfigMaps(gatewayAPIConfig.Namespace)
 	}
 	grpcRoute, err := grpcRouteClient.Get(ctx, gatewayAPIConfig.GRPCRoute, metav1.GetOptions{})
 	if err != nil {
@@ -32,16 +35,61 @@ func (r *RpcPlugin) setGRPCRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 	}
 	canaryServiceName := rollout.Spec.Strategy.Canary.CanaryService
 	stableServiceName := rollout.Spec.Strategy.Canary.StableService
-	routeRuleList := GRPCRouteRuleList(grpcRoute.Spec.Rules)
-	canaryBackendRefs, err := getBackendRefs(canaryServiceName, routeRuleList)
+
+	changesMade := false
+
+	// Retrieve the managed routes from the configmap to determine which rules were added via setGRPCHeaderRoute
+	managedRouteMap := make(ManagedRouteMap)
+	configMap, err := utils.GetOrCreateConfigMap(gatewayAPIConfig.ConfigMap, utils.CreateConfigMapOptions{
+		Clientset: clientset,
+		Ctx:       ctx,
+	})
 	if err != nil {
 		return pluginTypes.RpcError{
 			ErrorString: err.Error(),
 		}
 	}
-	for _, ref := range canaryBackendRefs {
-		ref.Weight = &desiredWeight
+	err = utils.GetConfigMapData(configMap, GRPCConfigMapKey, &managedRouteMap)
+	if err != nil {
+		return pluginTypes.RpcError{
+			ErrorString: err.Error(),
+		}
 	}
+	managedRuleIndices := make(map[int]bool)
+	for _, managedRoute := range managedRouteMap {
+		if idx, ok := managedRoute[grpcRoute.Name]; ok {
+			managedRuleIndices[idx] = true
+		}
+	}
+
+	routeRuleList := GRPCRouteRuleList(grpcRoute.Spec.Rules)
+	indexedCanaryBackendRefs, err := getIndexedBackendRefs(canaryServiceName, routeRuleList)
+	if err != nil {
+		return pluginTypes.RpcError{
+			ErrorString: err.Error(),
+		}
+	}
+	canaryBackendRefs := make([]*GRPCBackendRef, 0)
+
+	for _, indexedCanaryBackendRef := range indexedCanaryBackendRefs {
+		if managedRuleIndices[indexedCanaryBackendRef.RuleIndex] {
+			r.LogCtx.WithFields(logrus.Fields{
+				"rule":            grpcRoute.Spec.Rules[indexedCanaryBackendRef.RuleIndex],
+				"index":           indexedCanaryBackendRef.RuleIndex,
+				"managedRouteMap": managedRouteMap,
+			}).Info("Skipping matched canary backendRef on GRPCRoute for weight adjustment since it is a part of a rule marked as a managed route")
+			continue
+		}
+		canaryBackendRefs = append(canaryBackendRefs, indexedCanaryBackendRef.Refs...)
+	}
+
+	for _, ref := range canaryBackendRefs {
+		if ref.Weight == nil || *ref.Weight != desiredWeight {
+			ref.Weight = &desiredWeight
+			changesMade = true
+		}
+	}
+
 	stableBackendRefs, err := getBackendRefs(stableServiceName, routeRuleList)
 	if err != nil {
 		return pluginTypes.RpcError{
@@ -50,8 +98,27 @@ func (r *RpcPlugin) setGRPCRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 	}
 	restWeight := 100 - desiredWeight
 	for _, ref := range stableBackendRefs {
-		ref.Weight = &restWeight
+		if ref.Weight == nil || *ref.Weight != restWeight {
+			ref.Weight = &restWeight
+			changesMade = true
+		}
 	}
+	if !changesMade {
+		r.LogCtx.WithFields(logrus.Fields{
+			"desiredWeight":     desiredWeight,
+			"canaryServiceName": canaryServiceName,
+			"grpcRoute":         grpcRoute,
+			"stepType":          SetWeightStep,
+		}).Info("GRPCRoute weight is already set to desired weight, nothing to do.")
+		// No changes were made, return early
+		if r.IsTest {
+			return pluginTypes.RpcError{
+				ErrorString: "No changes were made to the HTTPRoute",
+			}
+		}
+		return pluginTypes.RpcError{}
+	}
+
 	updatedGRPCRoute, err := grpcRouteClient.Update(ctx, grpcRoute, metav1.UpdateOptions{})
 	if r.IsTest {
 		r.UpdatedGRPCRouteMock = updatedGRPCRoute
@@ -61,6 +128,12 @@ func (r *RpcPlugin) setGRPCRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 			ErrorString: err.Error(),
 		}
 	}
+	r.LogCtx.WithFields(logrus.Fields{
+		"desiredWeight":     desiredWeight,
+		"canaryServiceName": canaryServiceName,
+		"grpcRoute":         grpcRoute,
+		"stepType":          SetWeightStep,
+	}).Info("Set GRPCRoute weight")
 	return pluginTypes.RpcError{}
 }
 
@@ -227,6 +300,12 @@ func (r *RpcPlugin) setGRPCHeaderRoute(rollout *v1alpha1.Rollout, headerRouting 
 			ErrorString: err.Error(),
 		}
 	}
+	r.LogCtx.WithFields(logrus.Fields{
+		"headerRouting":     headerRouting,
+		"canaryServiceName": canaryServiceName,
+		"grpcRoute":         grpcRoute,
+		"stepType":          SetHeaderRouteStep,
+	}).Info("Set GRPCRoute header route")
 	return pluginTypes.RpcError{}
 }
 
@@ -375,6 +454,11 @@ func (r *RpcPlugin) removeGRPCManagedRoutes(managedRouteNameList []v1alpha1.Mang
 			ErrorString: err.Error(),
 		}
 	}
+	r.LogCtx.WithFields(logrus.Fields{
+		"managedRouteNameList": managedRouteNameList,
+		"grpcRoute":            grpcRoute,
+		"stepType":             RemoveSetHeaderRouteStep,
+	}).Info("Removed GRPCRoute managed routes")
 	return pluginTypes.RpcError{}
 }
 
