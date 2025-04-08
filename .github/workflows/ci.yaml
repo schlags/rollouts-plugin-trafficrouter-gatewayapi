@@ -80,3 +80,13 @@ jobs:
       - name: Build creation
         run: |
           go build -v
+
+  # Final summary depending on all jobs that exits 0 if all jobs are successful
+  summary:
+    name: Summary
+    runs-on: ubuntu-latest
+    needs: [linting, unit-tests, e2e-tests, build]
+    steps:
+      - name: Summary
+        run: |
+          echo "All jobs completed successfully!"
