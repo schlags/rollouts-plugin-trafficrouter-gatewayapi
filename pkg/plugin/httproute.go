@@ -48,10 +48,6 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 			ErrorString: err.Error(),
 		}
 	}
-	err = HandleExperiment(ctx, r.Clientset, r.GatewayAPIClientset, r.LogCtx, rollout, httpRoute, additionalDestinations)
-	if err != nil {
-		r.LogCtx.Error(err, "Failed to handle experiment services")
-	}
 	err = utils.GetConfigMapData(configMap, HTTPConfigMapKey, &managedRouteMap)
 	if err != nil {
 		return pluginTypes.RpcError{
@@ -116,6 +112,11 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 		}
 	}
 
+	err = HandleExperiment(ctx, r.Clientset, r.GatewayAPIClientset, r.LogCtx, rollout, httpRoute, additionalDestinations)
+	if err != nil {
+		r.LogCtx.Error(err, "Failed to handle experiment services")
+	}
+
 	if !changesMade {
 		r.LogCtx.WithFields(logrus.Fields{
 			"desiredWeight":     desiredWeight,
@@ -131,7 +132,6 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 		}
 		return pluginTypes.RpcError{}
 	}
-
 	updatedHTTPRoute, err := httpRouteClient.Update(ctx, httpRoute, metav1.UpdateOptions{})
 	if r.IsTest {
 		r.UpdatedHTTPRouteMock = updatedHTTPRoute
